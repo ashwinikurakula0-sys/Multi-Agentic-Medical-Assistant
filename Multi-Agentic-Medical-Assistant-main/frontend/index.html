@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Multi-Agent Medical Assistant</title>
+
+  <!-- External CSS -->
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- Font Awesome for Icons -->
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+  />
+</head>
+<body>
+  <div class="container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <h2>🩺 Medical Assistant</h2>
+      <section>
+        <h3>Available Agents</h3>
+        <ul>
+          <li>💬 Medical Conversation Agent</li>
+          <li>📚 Medical RAG Agent</li>
+          <li>🌐 Web Search Agent</li>
+        </ul>
+      </section>
+      <section>
+        <h3>Computer Vision Agents</h3>
+        <ul>
+          <li>🧠 Brain Tumor Detection</li>
+          <li>🫁 Chest X-ray Covid-19</li>
+          <li>🩹 Skin Lesion Segmentation</li>
+        </ul>
+      </section>
+      <section>
+        <h3>Capabilities</h3>
+        <ul>
+          <li>PDF parsing and embedding</li>
+          <li>Semantic chunking</li>
+          <li>Query expansion</li>
+          <li>Metadata enrichment</li>
+          <li>Guardrails for safe responses</li>
+          <li>Human verification for CVs</li>
+        </ul>
+      </section>
+    </aside>
+
+    <!-- Chat Area -->
+    <main class="chat">
+      <div class="chat-header">
+        <h1>💡 Multi-Agent Medical Assistant</h1>
+        <p>Upload medical images or ask health-related questions</p>
+      </div>
+
+      <!-- Chat box -->
+      <div class="chat-box" id="chatBox">
+        <!-- Chat messages appear here -->
+      </div>
+
+      <!-- Chat Footer: Upload + Input + Submit -->
+      <div class="chat-footer">
+        <form id="chat-form">
+          <!-- Upload Button -->
+          <label for="image-upload" class="upload-btn">
+            <i class="fas fa-image"></i> Upload Image
+          </label>
+          <input type="file" id="image-upload" accept="image/*" hidden />
+
+          <!-- Image Preview -->
+          <div id="preview-container" class="preview-container" style="display: none;">
+            <img id="preview-image" class="preview-image" alt="Preview" />
+            <button type="button" id="remove-image" class="remove-btn">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+
+          <!-- Text Input -->
+          <textarea
+            id="message-input"
+            placeholder="Ask a medical question..."
+            rows="1"
+          ></textarea>
+
+          <!-- Submit Button -->
+          <button type="submit" class="send-btn">
+            <i class="fas fa-paper-plane"></i>
+          </button>
+        </form>
+      </div>
+    </main>
+  </div>
+
+  <!-- JavaScript -->
+  <script>
+    const imageUpload = document.getElementById("image-upload");
+    const previewContainer = document.getElementById("preview-container");
+    const previewImage = document.getElementById("preview-image");
+    const removeImage = document.getElementById("remove-image");
+    const chatForm = document.getElementById("chat-form");
+    const messageInput = document.getElementById("message-input");
+    const chatBox = document.getElementById("chatBox");
+  
+    let selectedImageFile = null;
+  
+    imageUpload.addEventListener("change", function () {
+      const file = this.files[0];
+      if (file && file.type.startsWith("image/")) {
+        selectedImageFile = file;
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          previewImage.src = e.target.result;
+          previewContainer.style.display = "block";
+        };
+        reader.readAsDataURL(file);
+      } else {
+        previewContainer.style.display = "none";
+        selectedImageFile = null;
+      }
+    });
+  
+    removeImage.addEventListener("click", function () {
+      imageUpload.value = "";
+      previewContainer.style.display = "none";
+      selectedImageFile = null;
+    });
+  
+    chatForm.addEventListener("submit", async function (e) {
+      e.preventDefault();
+      const message = messageInput.value.trim();
+/////////////////////////////////
+      let session_id = localStorage.getItem("session_id");
+
+      if (!session_id) {
+        session_id = crypto.randomUUID();  // generate a new UUID
+        localStorage.setItem("session_id", session_id);
+      }
+
+      const formData = new FormData();
+  
+      if (message) {
+        formData.append("message", message);
+      }
+  
+      if (selectedImageFile) {
+        formData.append("file", selectedImageFile);
+      }
+  
+      if (message) {
+        addMessage("You", message);
+      }
+      
+      formData.append("session_id", session_id);
+///////////////////////////////////////////
+      if (selectedImageFile) {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          addImage("You", e.target.result);
+        };
+        reader.readAsDataURL(selectedImageFile);
+      }
+  
+      messageInput.value = "";
+      imageUpload.value = "";
+      previewContainer.style.display = "none";
+      selectedImageFile = null;
+  
+      try {
+        const endpoint = formData.has("file")
+          ? "http://127.0.0.1:8000/upload"  // ✅ fixed from /upload-image to /upload
+          : "http://127.0.0.1:8000/chat";
+  
+        const response = await fetch(endpoint, {
+          method: "POST",
+          body: formData
+        });
+  
+        const data = await response.json();
+        addMessage("Assistant", data.reply || "🤖 No reply received.");
+      } catch (err) {
+        console.error("Error:", err);
+        addMessage("Assistant", "⚠️ Something went wrong.");
+      }
+    });
+  
+    function addMessage(sender, text) {
+      const msgDiv = document.createElement("div");
+      msgDiv.className = sender === "You" ? "message user" : "message bot";
+      msgDiv.innerHTML = `<strong>${sender}:</strong> ${text}`;
+      chatBox.appendChild(msgDiv);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+  
+    function addImage(sender, src) {
+      const imgDiv = document.createElement("div");
+      imgDiv.className = sender === "You" ? "message user" : "message bot";
+      imgDiv.innerHTML = `<strong>${sender}:</strong><br><img src="${src}" style="max-width: 200px; border-radius: 6px; margin-top: 5px;" />`;
+      chatBox.appendChild(imgDiv);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+  </script>
+  
+</body>
+</html>

@@ -1,0 +1,19 @@
+# Python virtual environment
+venv/
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# Environment files
+**/.env
+
+# VSCode settings (optional)
+.vscode/
+
+# Node.js dependencies
+node_modules/
+package-lock.json
+
+rag_db/
+medical_pdfs/
